@@ -1,5 +1,23 @@
 const onvif = require('onvif');
 
+const isUrn = address => address.startsWith('uuid:');
+
+const getDevice = async ({
+   address,
+   username,
+   password
+}) => {
+   return isUrn(address) ? await getDeviceByUrn({
+      urn: address,
+      username,
+      password
+   }) : await getDeviceByHostname({
+      hostname: address,
+      username,
+      password
+   });
+}
+
 const getDeviceByUrn = async ({ urn, username, password }) => {
    return new Promise((resolve, reject) => onvif.Discovery.probe({timeout: 2000, resolve: true}, (error, devices) => {
       if (error) {
@@ -24,13 +42,17 @@ const getDeviceByHostname = async({ hostname, username, password }) => {
 }
 
 const reboot = device => new Promise((resolve, reject) => { 
-   device.systemReboot((err) => {
-      if (err) { 
-         reject(err);
-      } else {
-         resolve();
-      }
-   }); 
+   try {
+      device.systemReboot((err) => {
+         if (err) { 
+            reject(err);
+         } else {
+            resolve();
+         }
+      }); 
+   } catch (err) {
+      reject(err);
+   }
 });
 
 const connect = device => {
@@ -119,8 +141,7 @@ const setVideoEncoderConfiguration = (device, configuration) => {
 };
 
 module.exports = { 
-   getDeviceByUrn, 
-   getDeviceByHostname,
+   getDevice, 
    getConfigurations,
    connect,
    reboot,

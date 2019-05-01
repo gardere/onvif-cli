@@ -1,8 +1,7 @@
 const program = require('commander');
 
 const { 
-   getDeviceByHostname, 
-   getDeviceByUrn, 
+   getDevice, 
    getConfigurations, 
    connect, 
    reboot, 
@@ -13,29 +12,33 @@ const {
 } = require('./utils');
 
 program
-   .command('reboot <urn>')
+   .command('reboot <address>')
    .description('Reboot an OnVif compatible NVR')
    .option('-u, --username <username>', 'OnVif username')
    .option('-p, --password  <password>', 'OnVif password')
-   .action(async(urn, {username, password}) => {
-      const device = await getDeviceByUrn({
-         urn,
+   .action(async(address, {username, password}) => {
+      const device = await getDevice({
+         address,
          username,
          password
       });
+
       if (device) {
-         console.log(`Device ${urn} found!`);
-         await connect(device);
-         await reboot(device);
-         console.log('rebooting...');
-         process.exit(0);
+         console.log(`Device ${address} found!`);
+         try {
+            await connect(device);
+            await reboot(device);
+            console.log('rebooting...');
+            process.exit(0);
+         } catch(err) {
+            console.error('error rebooting device', err);
+            process.exit(1);
+         }
       } else {
-         console.error(`Device ${urn} not found!`);
+         console.error(`Device ${address} not found!`);
          process.exit(1);
       }
    });
-
-const isUrn = address => address.startsWith('uuid:');
 
 program
    .command('set_res <address> <resolution>')
@@ -47,12 +50,8 @@ program
    .action(async(address, resolution, {username, password, configurationtoken, quality}) => {
       console.log('Looking for device...');
       
-      const device = isUrn(address) ? await getDeviceByUrn({
-         urn: address,
-         username,
-         password
-      }) : await getDeviceByHostname({
-         hostname: address,
+      const device = await getDevice({
+         address,
          username,
          password
       });
@@ -64,13 +63,12 @@ program
          console.error(`Could not parse resolution ${resolution}:`, err);
          process.exit(1);
       }
-      console.log('resolution parsed', resolutionObject);
       
       let configuration;
       if (device) {
          console.log(`Device ${address} found!`);
          await connect(device);
-         console.log('connected');
+         console.log('Connected');
          const configurations = await getConfigurations(device);
          if (configurationtoken && !configurations.find(configuration => configuration.$ && configuration.$.token === token)) {
             console.error('configuration not found');
@@ -94,18 +92,18 @@ program
             configuration.resolution = selectedConfOption;
          }
 
-         console.log(`updating configuration ${configurationtoken}`);
+         console.log(`Updating configuration ${configurationtoken}`);
          try {
             configuration.quality = configuration.quality || quality;
             await setVideoEncoderConfiguration(device, configuration);
-            console.log('configuration updated');
+            console.log('Configuration updated!');
             process.exit(0);
          } catch(err) {
-            console.error('error updating configuration', err);
+            console.error('Error updating configuration', err);
             process.exit(1);
          }
       } else {
-         console.error(`Device ${urn} not found!`);
+         console.error(`Device ${address} not found!`);
          process.exit(1);
       }
    });
