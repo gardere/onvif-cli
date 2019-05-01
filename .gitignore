@@ -1,4 +1,5 @@
 node_modules/
 index-macos
 index-win.exe
-
+onvif-cli-macos
+onvif-cli-win.exe
